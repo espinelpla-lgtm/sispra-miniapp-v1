@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<!-- SISPRA · Miniapp de reportes (V7.8.63) -- se abre desde el bot con /reporte_sispra -->
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reporte SISPRA</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root {
+    --bg: #0A0E17; --s1: #121826; --s2: #161F33; --borde: #232C42; --texto: #E8ECF4; --texto2: #8B96AC;
+    --acento: #22D3EE; --ok: #34D399; --alerta: #F5A623; --peligro: #F0546B; --violeta: #A78BFA;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--texto); font: 15px/1.45 Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { padding: 0 0 calc(env(safe-area-inset-bottom, 0px) + 96px); }
+  header { position: sticky; top: 0; z-index: 20; background: rgba(10,14,23,.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--borde); padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px; }
+  .hdr-fila { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  header h1 { margin: 0; font-size: 17px; letter-spacing: .02em; }
+  header p { margin: 0; color: var(--texto2); font-size: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hdr-fila + .hdr-fila { margin-top: 4px; }
+  .red { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; white-space: nowrap; background: rgba(52,211,153,.14); color: var(--ok); border: 1px solid rgba(52,211,153,.3); }
+  .red.sin { background: rgba(245,166,35,.15); color: var(--alerta); border-color: rgba(245,166,35,.4); }
+  #reiniciar { flex-shrink: 0; font: inherit; font-size: 11px; color: var(--texto2); background: var(--s1); border: 1px solid var(--borde); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+  .prog { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .prog-barra { flex: 1; height: 5px; background: var(--s2); border-radius: 99px; overflow: hidden; }
+  .prog-barra > div { height: 100%; width: 0%; background: linear-gradient(90deg, var(--acento), var(--ok)); transition: width .25s ease; }
+  .prog span { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; color: var(--texto2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  main { padding: 10px 12px; display: grid; gap: 12px; }
+  .tarjeta { background: var(--s1); border: 1px solid var(--borde); border-radius: 14px; padding: 14px; }
+  .tarjeta.lista-ok { border-color: rgba(52,211,153,.38); }
+  .tarjeta h2 { gap: 8px; margin: 0 0 10px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--acento); display: flex; justify-content: space-between; align-items: center; }
+  .req::after { content: " *"; color: var(--peligro); }
+  .tarjeta h2 > span:first-child { flex: 1 1 auto; min-width: 0; }
+  .resumen { flex: 0 0 auto; max-width: 55%; font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--ok); text-align: right; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tarjeta:not(.lista-ok) .resumen { color: var(--texto2); font-weight: 400; }
+  .fila { display: grid; gap: 8px; }
+  .dos { grid-template-columns: 1fr 1fr; }
+  label.etq { font-size: 12px; color: var(--texto2); display: block; margin-bottom: 4px; }
+  input[type=text], input[type=date], input[type=time], select, textarea {
+    width: 100%; min-height: 46px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--borde);
+    background: var(--s2); color: var(--texto); font: inherit; outline: none; appearance: none; -webkit-appearance: none;
+  }
+  select { padding-right: 36px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238B96AC' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+  textarea { min-height: 120px; resize: vertical; }
+  input:focus, select:focus, textarea:focus { border-color: var(--acento); box-shadow: 0 0 0 2px rgba(34,211,238,.25); }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .seg.dos { grid-template-columns: 1fr 1fr; }
+  .btn, .chip {
+    min-height: 46px; border-radius: 10px; border: 1px solid var(--borde); background: linear-gradient(180deg, #1A2338, #141C2E);
+    color: var(--texto); font: inherit; font-size: 13px; font-weight: 600; padding: 8px 10px; cursor: pointer; transition: transform .12s, border-color .15s, background .15s;
+  }
+  .btn:active, .chip:active { transform: scale(.96); }
+  .btn.sel, .chip.sel { border-color: var(--acento); background: rgba(34,211,238,.16); color: #fff; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { min-height: 40px; padding: 6px 12px; font-size: 13px; }
+  .chip small { display: block; font-weight: 400; color: var(--texto2); font-size: 10px; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lista { max-height: 260px; overflow-y: auto; border: 1px solid var(--borde); border-radius: 10px; margin-top: 8px; }
+  .lista button { display: block; width: 100%; text-align: left; padding: 11px 12px; border: 0; border-bottom: 1px solid var(--borde); background: transparent; color: var(--texto); font: inherit; font-size: 14px; }
+  .lista button:last-child { border-bottom: 0; }
+  .lista button small { color: var(--texto2); display: block; font-size: 11px; }
+  .lista button:active { background: var(--s2); }
+  .elegida { margin-top: 8px; padding: 10px 12px; border-radius: 10px; background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.4); font-weight: 600; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .elegida button { border: 1px solid rgba(52,211,153,.35); border-radius: 6px; padding: 5px 10px; background: rgba(0,0,0,.25); color: var(--texto); font: inherit; font-size: 12px; cursor: pointer; flex-shrink: 0; }
+  .atajos { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 8px; scrollbar-width: none; }
+  .atajo { white-space: nowrap; font: inherit; font-size: 12px; font-weight: 600; padding: 7px 11px; border-radius: 8px; border: 1px solid var(--borde); background: var(--s2); color: var(--acento); cursor: pointer; }
+  .foto { display: grid; gap: 8px; }
+  .foto img { width: 100%; max-height: 320px; object-fit: contain; border-radius: 10px; background: #000; }
+  .nota { font-size: 12px; color: var(--texto2); margin-top: 6px; }
+  .nota.aviso { color: var(--alerta); }
+  .previa { white-space: pre-wrap; font-size: 13px; background: #0B101B; border: 1px solid var(--borde); border-left: 3px solid var(--acento); border-radius: 10px; padding: 12px; }
+  .contador { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; color: var(--texto2); }
+  .contador.mal { color: var(--peligro); font-weight: 700; }
+  .errores { background: rgba(240,84,107,.12); border: 1px solid rgba(240,84,107,.5); color: #FFD5DC; border-radius: 12px; padding: 12px; font-size: 13px; white-space: pre-line; }
+  .exito { background: rgba(52,211,153,.12); border: 1px solid rgba(52,211,153,.5); border-radius: 12px; padding: 16px; text-align: center; font-weight: 700; }
+  .oculto { display: none !important; }
+  #estado { margin: 16px 12px; padding: 18px 16px; color: var(--texto); background: var(--s1); border: 1px solid var(--borde); border-radius: 14px; font-size: 14px; white-space: pre-line; }
+  #estado.cargando::before { content: ""; display: block; width: 28px; height: 28px; margin: 0 auto 12px; border-radius: 50%; border: 3px solid var(--borde); border-top-color: var(--acento); animation: giro 0.9s linear infinite; }
+  #estado.error { border-color: rgba(240,84,107,.6); background: rgba(240,84,107,.10); }
+  @keyframes giro { to { transform: rotate(360deg); } }
+  :focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+  #enviarFijo { z-index: 30; position: fixed; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom, 0) + 12px); min-height: 52px; font-size: 16px; border-color: var(--acento); background: linear-gradient(180deg, #19B6CF, #0E8EA3); color: #031016; }
+  #enviarFijo:disabled { opacity: 1; background: #161F33; border-color: var(--borde); color: var(--texto2); font-size: 14px; }
+  /* V7.8.63: revisión de redacción con IA */
+  .rev { margin-top: 8px; }
+  .rev .btn { width: 100%; min-height: 42px; color: var(--violeta); border-color: rgba(167,139,250,.45); }
+  .rev .btn:disabled { opacity: .6; }
+  .propuesta { margin-top: 8px; padding: 12px; border-radius: 10px; background: rgba(167,139,250,.10); border: 1px solid rgba(167,139,250,.45); }
+  .propuesta .txt { white-space: pre-wrap; font-size: 14px; margin: 6px 0 10px; }
+  .propuesta .etq2 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--violeta); }
+  .propuesta .seg .btn { min-height: 42px; font-size: 13px; }
+  #revUsar { border-color: var(--ok); color: var(--ok); }
+  #pieFijo { z-index: 25; position: fixed; left: 0; right: 0; bottom: 0; height: calc(env(safe-area-inset-bottom, 0) + 84px); background: linear-gradient(180deg, rgba(10,14,23,0), rgba(10,14,23,.96) 35%); pointer-events: none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="hdr-fila"><h1>📝 Reporte SISPRA</h1><span id="red" class="red">En línea</span></div>
+  <div class="hdr-fila"><p id="saludo">Cargando…</p><button type="button" id="reiniciar" class="oculto">Empezar de nuevo</button></div>
+  <div class="prog oculto" id="prog"><div class="prog-barra"><div id="progBarra"></div></div><span id="progTxt"></span></div>
+</header>
+<div id="estado" class="cargando">Preparando la miniapp…</div>
+<main id="form" class="oculto">
+  <section class="tarjeta" id="secAct">
+    <h2><span class="req">Actividad</span><span class="resumen" id="resAct"></span></h2>
+    <div class="seg" id="actividades"></div>
+  </section>
+
+  <section class="tarjeta" id="secInst">
+    <h2><span class="req">Instalación</span><span class="resumen" id="resInst"></span></h2>
+    <div class="fila dos">
+      <div><label class="etq" for="eje">Eje geográfico</label><select id="eje"><option value="">Todos</option></select></div>
+      <div><label class="etq" for="buscarInst">Buscar</label><input id="buscarInst" type="text" placeholder="Ej.: TOVAR, CIAU, BOSQUE" autocomplete="off"></div>
+    </div>
+    <div class="lista" id="listaInst"></div>
+    <div class="elegida oculto" id="instElegida"><span id="instNombre"></span><button type="button" id="instCambiar">Cambiar</button></div>
+  </section>
+
+  <section class="tarjeta" id="secOrg">
+    <h2><span class="req">Organismo que participó</span><span class="resumen" id="resOrg"></span></h2>
+    <div class="fila dos">
+      <div><label class="etq" for="grupoOrg">Grupo</label><select id="grupoOrg"><option value="">Todos</option></select></div>
+      <div><label class="etq" for="buscarOrg">Buscar</label><input id="buscarOrg" type="text" placeholder="Ej.: ZODI, GNB, CPNB" autocomplete="off"></div>
+    </div>
+    <div class="lista" id="listaOrg"></div>
+    <div class="elegida oculto" id="orgElegido"><span id="orgNombre"></span><button type="button" id="orgCambiar">Cambiar</button></div>
+    <div class="nota">Uno solo. Si participó otro organismo (ronda mayor, presencia de Seguridad Interna), menciónelo en las observaciones.</div>
+  </section>
+
+  <section class="tarjeta" id="secCuando">
+    <h2><span class="req">¿Cuándo se ejecutó?</span><span class="resumen" id="resCuando"></span></h2>
+    <div class="seg dos" id="cuando">
+      <button type="button" class="btn sel" data-v="hoy">Hoy</button>
+      <button type="button" class="btn" data-v="otro">Otro día</button>
+    </div>
+    <div class="fila dos" style="margin-top:8px">
+      <div id="cajaFecha" class="oculto"><label class="etq" for="fechaEj">Fecha de ejecución</label><input id="fechaEj" type="date"></div>
+      <div><label class="etq" for="horaEj">Hora de ejecución</label><input id="horaEj" type="time"></div>
+    </div>
+    <div class="nota" id="notaCuando">La FECHA del reporte es siempre la de hoy; si se ejecutó otro día, el sistema agrega la fecha y hora reales en formato militar al inicio de las observaciones.</div>
+  </section>
+
+  <section class="tarjeta oculto" id="cajaDuracion">
+    <h2><span class="req">Duración</span><span class="resumen" id="resDur"></span></h2>
+    <div class="chips" id="duraciones"></div>
+    <input id="duracionOtra" type="text" class="oculto" placeholder="Ej.: 1 hora y 15 minutos" style="margin-top:8px">
+  </section>
+
+  <section class="tarjeta" id="secEjec">
+    <h2>Trabajador que ejecutó</h2>
+    <select id="ejecutor"></select>
+  </section>
+
+  <section class="tarjeta oculto" id="cajaExtras">
+    <h2>Datos adicionales</h2>
+    <div class="fila" id="extras"></div>
+  </section>
+
+  <section class="tarjeta" id="secObs">
+    <h2><span class="req">Observaciones</span><span class="contador" id="contador"></span></h2>
+    <div class="atajos oculto" id="atajosObs"></div>
+    <textarea id="obs" placeholder="Ej.: comisión policial al mando del P/O … (V…), en compañía de …, realizó un recorrido preventivo sin novedad."></textarea>
+    <div class="rev oculto" id="cajaRev">
+      <button type="button" class="btn" id="btnRevisar">✍️ Revisar redacción (opcional)</button>
+      <div class="nota" id="notaRev"></div>
+      <div class="propuesta oculto" id="propuesta">
+        <div class="etq2">Propuesta corregida</div>
+        <div class="txt" id="propTxt"></div>
+        <div class="seg dos">
+          <button type="button" class="btn" id="revUsar">Usar corrección</button>
+          <button type="button" class="btn" id="revDescartar">Conservar mi texto</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tarjeta" id="secFoto">
+    <h2><span class="req">Foto</span><span class="resumen" id="resFoto"></span></h2>
+    <div class="seg dos">
+      <button type="button" class="btn" id="btnCamara">📷 Tomar foto</button>
+      <button type="button" class="btn" id="btnGaleria">🖼️ Galería</button>
+    </div>
+    <input id="inCamara" type="file" accept="image/*" capture="environment" class="oculto">
+    <input id="inGaleria" type="file" accept="image/*" class="oculto">
+    <div class="foto oculto" id="cajaFoto" style="margin-top:8px"><img id="imgFoto" alt="Foto del reporte"><div class="nota" id="notaFoto"></div></div>
+  </section>
+
+  <section class="tarjeta">
+    <h2>Vista previa</h2>
+    <div class="previa" id="previa"></div>
+    <div class="nota">El número de reporte lo asigna el sistema al enviar.</div>
+  </section>
+
+  <div class="errores oculto" id="errores"></div>
+  <div class="exito oculto" id="exito"></div>
+  <div class="nota" id="notaBorrador" style="text-align:center">El borrador se guarda en este teléfono: puede llenarlo sin señal y enviarlo después.</div>
+</main>
+<div id="pieFijo"></div>
+<button type="button" class="btn oculto" id="enviarFijo" disabled>Enviar reporte</button>
+
+<script>
+// Cualquier error de la página se muestra en pantalla (nunca queda en negro)
+window.addEventListener("error", function (ev) {
+  var e = document.getElementById("estado");
+  if (e) { e.classList.remove("oculto", "cargando"); e.classList.add("error"); e.textContent = "No se pudo iniciar la miniapp.\nDetalle para soporte: " + (ev.message || "error desconocido"); }
+});
+</script>
+<script>
+(function () {
+  "use strict";
+  var tg = window.Telegram && window.Telegram.WebApp;
+  var LS_BORR = "sispra_miniapp_borrador_v1", LS_DATOS = "sispra_miniapp_datos_v1";
+  var DURACIONES = ["15 minutos", "30 minutos", "45 minutos", "1 hora", "1 hora y 30 minutos", "2 horas", "Otra"];
+  var backend = new URLSearchParams(location.search).get("b") || "";
+  var D = null; // datos del servidor
+  var S = { actividad: "", instalacion: "", organismos: [], cuando: "hoy", fecha: "", hora: "", duracion: "", duracionOtra: "", ejecutor: "", obs: "", extras: {}, foto: null, idCliente: "" };
+  var $ = function (id) { return document.getElementById(id); };
+  var norm = function (t) { return String(t || "").toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim(); };
+  var esc = function (t) { return String(t == null ? "" : t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); };
+
+  if (tg) { try { tg.ready(); tg.expand(); tg.setHeaderColor && tg.setHeaderColor("#0A0E17"); tg.setBackgroundColor && tg.setBackgroundColor("#0A0E17"); } catch (e) {} }
+  function pintarRed() { var on = navigator.onLine !== false, r = $("red"); r.textContent = on ? "En línea" : "Sin señal · borrador"; r.classList.toggle("sin", !on); }
+  window.addEventListener("online", pintarRed); window.addEventListener("offline", pintarRed); pintarRed();
+  function vibrar() { try { tg && tg.HapticFeedback && tg.HapticFeedback.selectionChanged(); } catch (e) {} }
+
+  function guardar() { try { localStorage.setItem(LS_BORR, JSON.stringify(S)); } catch (e) { try { var s2 = Object.assign({}, S, { foto: null }); localStorage.setItem(LS_BORR, JSON.stringify(s2)); } catch (e2) {} } }
+  function cargarBorrador() { try { var b = JSON.parse(localStorage.getItem(LS_BORR) || "null"); if (b) Object.assign(S, b); } catch (e) {} }
+  function nuevoId() { return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2); }
+
+  function estado(t, tipo) {
+    var e = $("estado"); e.textContent = t; e.classList.remove("oculto", "cargando", "error");
+    if (tipo) e.classList.add(tipo);
+  }
+  // Compatibilidad con teléfonos con WebView antiguo
+  function conTiempo(ms) {
+    if (typeof AbortController === "undefined") return { signal: undefined, limpiar: function () {} };
+    var c = new AbortController(), t = setTimeout(function () { c.abort(); }, ms);
+    return { signal: c.signal, limpiar: function () { clearTimeout(t); } };
+  }
+  function leerInicio(archivo) {
+    var parte = archivo.slice(0, 262144);
+    if (parte.arrayBuffer) return parte.arrayBuffer();
+    return new Promise(function (res, rej) { var fr = new FileReader(); fr.onload = function () { res(fr.result); }; fr.onerror = rej; fr.readAsArrayBuffer(parte); });
+  }
+
+  // ---------- carga de datos ----------
+  function iniciar() {
+    $("saludo").textContent = "";
+    if (!tg || !tg.initData) { estado("Abra esta miniapp desde el bot de SISPRA: escriba /reporte_sispra por privado y pulse el botón «Elaborar reporte SISPRA».", "error"); return; }
+    if (!backend) { estado("Falta la URL del servidor. La Gerencia debe ejecutar «Miniapp: configurar URL del web app» y luego usted volver a escribir /reporte_sispra.", "error"); return; }
+    cargarBorrador();
+    estado("Conectando con SISPRA…", "cargando");
+    var lento = setTimeout(function () { estado("El servidor está tardando en responder (puede tomar hasta 30 s la primera vez)…", "cargando"); }, 12000);
+    var tt = conTiempo(60000);
+    fetch(backend + (backend.indexOf("?") === -1 ? "?" : "&") + "accion=miniapp_datos&init_data=" + encodeURIComponent(tg.initData), { signal: tt.signal })
+      .then(function (r) {
+        return r.text().then(function (txt) {
+          try { return JSON.parse(txt); } catch (e) { throw new Error("RESPUESTA_NO_JSON:" + txt.slice(0, 80)); }
+        });
+      })
+      .then(function (d) {
+        tt.limpiar(); clearTimeout(lento);
+        if (!d.ok) { estado(d.mensaje || "No autorizado.", "error"); return; }
+        try { localStorage.setItem(LS_DATOS, JSON.stringify(d)); } catch (e) {}
+        montar(d);
+      })
+      .catch(function (err) {
+        tt.limpiar(); clearTimeout(lento);
+        var msg = String(err && err.message || "");
+        if (msg.indexOf("RESPUESTA_NO_JSON:") === 0) {
+          estado("El servidor de SISPRA no reconoce la miniapp (respondió: «" + msg.slice(18) + "»).\nLa Gerencia debe publicar la versión vigente de SISPRA (Implementar → Administrar implementaciones → Nueva versión) y revisar la URL configurada.", "error");
+          return;
+        }
+        var c = null; try { c = JSON.parse(localStorage.getItem(LS_DATOS) || "null"); } catch (e) {}
+        if (c) { montar(c); avisoErrores(["Sin conexión con el servidor: se usan las listas guardadas. Puede llenar el reporte y enviarlo cuando tenga señal."], true); }
+        else estado("No hubo conexión con el servidor de SISPRA. Vuelva a intentarlo cuando tenga señal.\n(" + (err && err.name === "AbortError" ? "tiempo de espera agotado" : msg || "error de red") + ")", "error");
+      });
+  }
+
+  function montar(d) {
+    D = d;
+    $("estado").classList.add("oculto"); $("form").classList.remove("oculto"); $("enviarFijo").classList.remove("oculto");
+    $("prog").classList.remove("oculto"); $("reiniciar").classList.remove("oculto");
+    $("saludo").textContent = "Reporta: " + (d.usuario && d.usuario.nombre || "");
+    if (!S.hora) S.hora = d.ahora; if (!S.fecha) S.fecha = d.hoy; if (!S.ejecutor) S.ejecutor = d.usuario && d.usuario.nombre || "";
+    // actividades
+    $("actividades").innerHTML = d.actividades.map(function (a) { return '<button type="button" class="btn" data-v="' + esc(a) + '">' + esc(a) + "</button>"; }).join("");
+    // ejes
+    var ejes = []; d.instalaciones.forEach(function (i) { if (i.eje && ejes.indexOf(i.eje) === -1) ejes.push(i.eje); }); ejes.sort();
+    $("eje").innerHTML = '<option value="">Todos</option>' + ejes.map(function (e) { return '<option>' + esc(e) + "</option>"; }).join("");
+    // organismos: grupos y nombres salen de CATALOGO_ORGANISMOS (nada fijo en código).
+    // El grupo del personal propio va al final; los demás, en orden alfabético.
+    var grupos = []; d.organismos.forEach(function (o) { if (o.grupo && grupos.indexOf(o.grupo) === -1) grupos.push(o.grupo); });
+    var gPropio = (d.organismos.filter(function (o) { return o.propio; })[0] || {}).grupo;
+    grupos.sort(function (a, b) { return (a === gPropio) - (b === gPropio) || a.localeCompare(b, "es"); });
+    $("grupoOrg").innerHTML = '<option value="">Todos</option>' + grupos.map(function (g) { return "<option>" + esc(g) + "</option>"; }).join("");
+    $("grupoOrg").parentNode.classList.toggle("oculto", grupos.length < 2);
+    // Un borrador viejo pudo guardar varios organismos: se pide elegir de nuevo.
+    if (S.organismos.length > 1 || (S.organismos[0] && !orgPorSigla(S.organismos[0]))) S.organismos = [];
+    // duraciones
+    $("duraciones").innerHTML = DURACIONES.map(function (x) { return '<button type="button" class="chip" data-v="' + esc(x) + '">' + esc(x) + "</button>"; }).join("");
+    // ejecutor
+    var trab = d.trabajadores.slice(); if (S.ejecutor && trab.indexOf(S.ejecutor) === -1) trab.unshift(S.ejecutor);
+    $("ejecutor").innerHTML = trab.map(function (n) { return "<option>" + esc(n) + "</option>"; }).join("");
+    // líneas nuevas de la plantilla
+    var nuevas = d.plantilla.filter(function (f) { return f.nueva; });
+    if (nuevas.length) {
+      $("cajaExtras").classList.remove("oculto");
+      $("extras").innerHTML = nuevas.map(function (f) {
+        return '<div><label class="etq ' + (f.obligatorio ? "req" : "") + '" for="x_' + esc(f.campo) + '">' + esc(f.pregunta || f.etiqueta) + '</label><input type="text" id="x_' + esc(f.campo) + '" data-campo="' + esc(f.campo) + '" placeholder="' + esc(f.ejemplo || "") + '"></div>';
+      }).join("");
+    }
+    // Atajos de observaciones: vienen de CONFIG_SISPRA (ATAJOS_OBSERVACIONES); sin datos, no se muestran.
+    var atajos = Array.isArray(d.atajos) ? d.atajos : [];
+    $("atajosObs").classList.toggle("oculto", !atajos.length);
+    $("atajosObs").innerHTML = atajos.map(function (a, i) { return '<button type="button" class="atajo" data-i="' + i + '">+ ' + esc(a.titulo) + "</button>"; }).join("");
+    $("fechaEj").max = d.hoy;
+    // V7.8.63: botón «Revisar redacción» solo si la Gerencia lo activó (MINIAPP_CORRECCION_IA_ACTIVA).
+    $("cajaRev").classList.toggle("oculto", d.revisionIA !== true);
+    enlazar(); pintar();
+  }
+
+  // ---------- interacción ----------
+  function enlazar() {
+    $("actividades").onclick = function (e) { var b = e.target.closest("button"); if (!b) return; S.actividad = b.dataset.v; vibrar(); cambio(); };
+    $("listaOrg").onclick = function (e) { var b = e.target.closest("button"); if (!b) return; S.organismos = [b.dataset.v]; vibrar(); cambio(); };
+    $("orgCambiar").onclick = function () { S.organismos = []; cambio(); $("buscarOrg").focus(); };
+    $("grupoOrg").onchange = filtrarOrg;
+    $("duraciones").onclick = function (e) { var b = e.target.closest("button"); if (!b) return; S.duracion = b.dataset.v; vibrar(); cambio(); };
+    $("cuando").onclick = function (e) { var b = e.target.closest("button"); if (!b) return; S.cuando = b.dataset.v; if (S.cuando === "hoy") S.fecha = D.hoy; vibrar(); cambio(); };
+    $("eje").onchange = listarInst; $("buscarInst").oninput = listarInst;
+    $("buscarOrg").oninput = filtrarOrg;
+    $("atajosObs").onclick = function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      var a = D.atajos[+b.dataset.i]; if (!a) return;
+      var t = String(a.texto).replace(/\{ORGANISMOS\}/g, S.organismos.join("/") || "…").replace(/\{INSTALACION\}/g, S.instalacion || "…").replace(/\{ACTIVIDAD\}/g, (S.actividad || "…").toLowerCase());
+      var poner = function () { S.obs = t; vibrar(); cambio(); var o = $("obs"); o.focus(); var k = t.indexOf("…"); if (k !== -1 && o.setSelectionRange) o.setSelectionRange(k, k + 1); };
+      if (!S.obs.trim()) poner(); else confirmar("¿Reemplazar las observaciones escritas por el texto de «" + a.titulo + "»?", poner);
+    };
+    $("reiniciar").onclick = function () { confirmar("¿Borrar este reporte y empezar de nuevo? Se pierde lo escrito y la foto.", reiniciar); };
+    $("listaInst").onclick = function (e) { var b = e.target.closest("button"); if (!b) return; S.instalacion = b.dataset.v; vibrar(); cambio(); };
+    $("instCambiar").onclick = function () { S.instalacion = ""; cambio(); $("buscarInst").focus(); };
+    $("fechaEj").onchange = function () { S.fecha = this.value; cambio(); };
+    $("horaEj").onchange = function () { S.hora = this.value; cambio(); };
+    $("duracionOtra").oninput = function () { S.duracionOtra = this.value; cambio(); };
+    $("ejecutor").onchange = function () { S.ejecutor = this.value; cambio(); };
+    $("obs").oninput = function () { S.obs = this.value; ocultarPropuesta(""); cambio(); };
+    $("btnRevisar").onclick = revisarRedaccion;
+    $("revUsar").onclick = function () { if (propuesta) { S.obs = propuesta; vibrar(); ocultarPropuesta("✓ Corrección aplicada. Puede seguir editándola."); cambio(); } };
+    $("revDescartar").onclick = function () { ocultarPropuesta("Se conservó su texto."); };
+    $("extras").oninput = function (e) { if (e.target.dataset.campo) { S.extras[e.target.dataset.campo] = e.target.value; cambio(); } };
+    $("btnCamara").onclick = function () { $("inCamara").click(); };
+    $("btnGaleria").onclick = function () { $("inGaleria").click(); };
+    $("inCamara").onchange = $("inGaleria").onchange = function () { if (this.files && this.files[0]) procesarFoto(this.files[0]); this.value = ""; };
+    $("enviarFijo").onclick = enviar;
+  }
+  function cambio() { S.idCliente = ""; guardar(); pintar(); }
+  function confirmar(texto, si) {
+    try { if (tg && tg.showConfirm) { tg.showConfirm(texto, function (ok) { if (ok) si(); }); return; } } catch (e) {}
+    if (window.confirm(texto)) si();
+  }
+  function reiniciar() {
+    try { localStorage.removeItem(LS_BORR); } catch (e) {}
+    S = { actividad: "", instalacion: "", organismos: [], cuando: "hoy", fecha: D.hoy, hora: D.ahora, duracion: "", duracionOtra: "", ejecutor: D.usuario && D.usuario.nombre || "", obs: "", extras: {}, foto: null, idCliente: "" };
+    $("buscarInst").value = ""; $("eje").value = ""; $("buscarOrg").value = ""; $("grupoOrg").value = "";
+    $("errores").classList.add("oculto"); ocultarPropuesta(""); vibrar(); pintar(); window.scrollTo(0, 0);
+  }
+  function orgPorSigla(sig) { return D && D.organismos.filter(function (o) { return o.sigla === sig; })[0]; }
+  // Personal propio: se muestra su rótulo; los demás, la sigla con el nombre debajo.
+  function orgTitulo(o) { return o.propio ? o.nombre : o.sigla; }
+  function orgDetalle(o) { return o.propio ? o.sigla : o.nombre; }
+  function filtrarOrg() {
+    if (!D) return;
+    var q = norm($("buscarOrg").value), g = $("grupoOrg").value;
+    var res = D.organismos.filter(function (o) {
+      if (g && o.grupo !== g) return false;
+      return !q || norm(o.sigla + " " + o.nombre + " " + (o.grupo || "")).indexOf(q) !== -1;
+    });
+    $("resOrg").textContent = S.organismos.length ? "" : (q || g ? res.length + " de " + D.organismos.length : D.organismos.length + " organismos");
+    $("listaOrg").innerHTML = res.length ? res.map(function (o) {
+      return '<button type="button" data-v="' + esc(o.sigla) + '">' + esc(orgTitulo(o)) + "<small>" + esc(orgDetalle(o)) + (o.grupo ? " · " + esc(o.grupo) : "") + "</small></button>";
+    }).join("") : '<div class="nota" style="padding:10px">Sin resultados.</div>';
+  }
+
+  function listarInst() {
+    var q = norm($("buscarInst").value);
+    var eje = $("eje").value;
+    var res = D.instalaciones.filter(function (i) {
+      if (eje && i.eje !== eje) return false;
+      if (!q) return true;
+      return (i.nombre + " " + i.municipio).toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").indexOf(q) !== -1;
+    });
+    var total = res.length; res = res.slice(0, 40);
+    $("resInst").textContent = S.instalacion ? "" : (q || eje ? total + " de " + D.instalaciones.length : D.instalaciones.length + " instalaciones");
+    $("listaInst").innerHTML = res.length ? res.map(function (i) { return '<button type="button" data-v="' + esc(i.nombre) + '">' + esc(i.nombre) + "<small>" + esc(i.eje) + " · " + esc(i.municipio) + "</small></button>"; }).join("") : '<div class="nota" style="padding:10px">Sin resultados.</div>';
+  }
+
+  function necesitaDuracion() { return D && D.actividadesConDuracion.indexOf(S.actividad) !== -1; }
+  // En PATRULLAJE solo va el funcionario militar o policial: sin trabajador ejecutor.
+  // La lista viene del servidor; si no la envía (versión anterior), la sección se muestra siempre.
+  function llevaEjecutor() { return !D || !Array.isArray(D.actividadesConEjecutor) || D.actividadesConEjecutor.indexOf(S.actividad) !== -1; }
+  function duracionTexto() { return S.duracion === "Otra" ? S.duracionOtra.trim() : S.duracion; }
+  function dtg() {
+    if (S.cuando !== "otro" || !S.fecha || S.fecha === D.hoy) return "";
+    var M = ["", "ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
+    var p = S.fecha.split("-"), h = (S.hora || "00:00").split(":");
+    return p[2] + h[0] + h[1] + M[parseInt(p[1], 10)] + p[0].slice(2);
+  }
+  function hoyTxt() { var p = D.hoy.split("-"); return p[2] + "/" + p[1] + "/" + p[0]; }
+  function observacionesFinal() {
+    var o = S.obs.replace(/\s+/g, " ").trim(), pre = dtg();
+    if (pre) o = pre + " " + o;
+    if (necesitaDuracion() && duracionTexto() && !/\b(MINUTO|HORA|MIN\b|HRS?\b)/i.test(S.obs)) o = o.replace(/[.\s]+$/, "") + ", con una duración de " + duracionTexto().toLowerCase() + ".";
+    return o;
+  }
+  function textoReporte(html) {
+    var b = function (t) { return html ? "<b>" + t + "</b>" : t; };
+    var e = html ? esc : function (t) { return String(t); };
+    var v = { ESTADO: "MÉRIDA", FECHA: hoyTxt(), HORA: S.hora, CORRELATIVO: "(lo asigna el sistema)", ACTIVIDAD: S.actividad, INSTALACION: S.instalacion, ORGANISMO: S.organismos.join("/"), OBSERVACIONES: observacionesFinal() };
+    Object.keys(S.extras).forEach(function (k) { v[k] = S.extras[k]; });
+    var out = [];
+    D.plantilla.forEach(function (f) {
+      if (!f.enPlantilla) return;
+      if (f.tipo === "FIJA") { out.push(f.negrita === "NO" ? e(f.etiqueta) : b(e(f.etiqueta))); return; }
+      var x = v[f.campo] ? String(v[f.campo]) : ""; if (!x) return;
+      if (f.campo === "HORA" && !/h\.?$/i.test(x)) x += " h";
+      if (!/[.!?)]$/.test(x)) x += ".";
+      out.push((f.negrita === "NO" ? e(f.etiqueta + ":") : b(e(f.etiqueta + ":"))) + " " + e(x));
+    });
+    return out.join("\n");
+  }
+  // Cada requisito del reporte con su estado; de aquí salen el botón y la barra de progreso.
+  function requisitos() {
+    var r = [
+      { n: "Actividad", ok: !!S.actividad },
+      { n: "Instalación", ok: !!S.instalacion },
+      { n: "Organismo", ok: S.organismos.length === 1 },
+      { n: "Hora de ejecución", ok: !!S.hora },
+    ];
+    if (S.cuando === "otro") r.push({ n: "Fecha de ejecución", ok: !!S.fecha });
+    if (necesitaDuracion()) r.push({ n: "Duración", ok: !!duracionTexto() || /\b(MINUTO|HORA)/i.test(S.obs) });
+    // «…» marca lo que falta completar en un atajo.
+    r.push({ n: S.obs.indexOf("…") !== -1 ? "Completar «…» en observaciones" : "Observaciones", ok: !!S.obs.trim() && S.obs.indexOf("…") === -1 });
+    r.push({ n: "Foto", ok: !!S.foto });
+    D.plantilla.forEach(function (x) { if (x.nueva && x.obligatorio) r.push({ n: x.etiqueta, ok: !!String(S.extras[x.campo] || "").trim() }); });
+    return r;
+  }
+  function faltantes() { return requisitos().filter(function (x) { return !x.ok; }).map(function (x) { return x.n; }); }
+
+  function pintar() {
+    Array.prototype.forEach.call($("actividades").children, function (b) { b.classList.toggle("sel", b.dataset.v === S.actividad); });
+    var oSel = S.organismos[0] && orgPorSigla(S.organismos[0]);
+    $("orgElegido").classList.toggle("oculto", !oSel);
+    $("orgNombre").textContent = oSel ? (oSel.propio ? oSel.nombre : oSel.sigla + " · " + oSel.nombre) : "";
+    $("listaOrg").classList.toggle("oculto", !!oSel); if (!oSel) filtrarOrg();
+    Array.prototype.forEach.call($("duraciones").children, function (b) { b.classList.toggle("sel", b.dataset.v === S.duracion); });
+    Array.prototype.forEach.call($("cuando").children, function (b) { b.classList.toggle("sel", b.dataset.v === S.cuando); });
+    $("cajaDuracion").classList.toggle("oculto", !necesitaDuracion());
+    $("secEjec").classList.toggle("oculto", !llevaEjecutor());
+    $("duracionOtra").classList.toggle("oculto", S.duracion !== "Otra"); $("duracionOtra").value = S.duracionOtra || "";
+    $("cajaFecha").classList.toggle("oculto", S.cuando !== "otro");
+    $("fechaEj").value = S.fecha || ""; $("horaEj").value = S.hora || ""; $("obs").value = S.obs || "";
+    $("ejecutor").value = S.ejecutor || "";
+    Array.prototype.forEach.call(document.querySelectorAll("#extras input"), function (i) { i.value = S.extras[i.dataset.campo] || ""; });
+    $("instElegida").classList.toggle("oculto", !S.instalacion); $("instNombre").textContent = S.instalacion;
+    $("listaInst").classList.toggle("oculto", !!S.instalacion); if (!S.instalacion) listarInst();
+    if (S.foto) {
+      $("cajaFoto").classList.remove("oculto"); $("imgFoto").src = S.foto.dataUrl;
+      var nf = $("notaFoto");
+      if (!S.foto.fechaFoto) { nf.textContent = "⚠️ La foto no trae fecha de captura: el reporte se registrará, pero quedará marcado para revisión."; nf.classList.add("aviso"); }
+      else {
+        var fe = S.cuando === "otro" ? S.fecha : D.hoy, ff = S.foto.fechaFoto.slice(0, 10);
+        var dias = Math.abs((new Date(ff + "T12:00:00") - new Date(fe + "T12:00:00")) / 864e5);
+        nf.textContent = "Tomada el " + ff.split("-").reverse().join("/") + " " + S.foto.fechaFoto.slice(11, 16) + (dias > 1 ? " · ⚠️ no coincide con la fecha de ejecución: quedará marcado para revisión." : "");
+        nf.classList.toggle("aviso", dias > 1);
+      }
+    } else $("cajaFoto").classList.add("oculto");
+    $("previa").innerHTML = textoReporte(true);
+    var largo = textoReporte(false).length - "(lo asigna el sistema)".length + 5;
+    $("contador").textContent = largo + " / " + D.limiteCaption; $("contador").classList.toggle("mal", largo > D.limiteCaption);
+    var req = requisitos(), falt = faltantes(), listos = req.length - falt.length;
+    $("progBarra").style.width = Math.round(listos * 100 / req.length) + "%";
+    $("progTxt").textContent = listos + " de " + req.length + " listos";
+    var marca = function (sec, ok, res, txt) { $(sec).classList.toggle("lista-ok", ok); if (res) $(res).textContent = ok ? "✓ " + txt : ""; };
+    marca("secAct", !!S.actividad, "resAct", S.actividad);
+    marca("secInst", !!S.instalacion, null);
+    if (S.instalacion) $("resInst").textContent = "✓";
+    $("secOrg").classList.toggle("lista-ok", !!oSel); if (oSel) $("resOrg").textContent = "✓";
+    var cuandoOk = !!S.hora && (S.cuando !== "otro" || !!S.fecha);
+    marca("secCuando", cuandoOk, "resCuando", (S.cuando === "otro" && S.fecha ? S.fecha.split("-").reverse().slice(0, 2).join("/") + " " : "Hoy ") + (S.hora || ""));
+    marca("cajaDuracion", !!duracionTexto() || /\b(MINUTO|HORA)/i.test(S.obs), "resDur", duracionTexto() || "en observaciones");
+    $("secObs").classList.toggle("lista-ok", !!S.obs.trim() && S.obs.indexOf("…") === -1);
+    marca("secFoto", !!S.foto, "resFoto", "lista");
+    if (S.foto && !S.foto.fechaFoto) { $("resFoto").textContent = "⚠️ sin fecha"; $("resFoto").style.color = "var(--alerta)"; } else $("resFoto").style.color = "";
+    $("enviarFijo").disabled = falt.length > 0 || largo > D.limiteCaption;
+    $("enviarFijo").textContent = falt.length ? "Falta: " + falt.slice(0, 2).join(", ") + (falt.length > 2 ? "…" : "") : "Enviar reporte";
+  }
+
+  // ---------- foto ----------
+  function leerFechaExif(buf) {
+    try {
+      var v = new DataView(buf); if (v.getUint16(0) !== 0xFFD8) return "";
+      var o = 2;
+      while (o < v.byteLength - 4) {
+        var marca = v.getUint16(o), largo = v.getUint16(o + 2);
+        if (marca === 0xFFE1 && v.getUint32(o + 4) === 0x45786966) {
+          var t = o + 10, le = v.getUint16(t) === 0x4949;
+          var u16 = function (p) { return v.getUint16(p, le); }, u32 = function (p) { return v.getUint32(p, le); };
+          var buscar = function (ifd, tag) { var n = u16(t + ifd); for (var i = 0; i < n; i++) { var e = t + ifd + 2 + i * 12; if (u16(e) === tag) return e; } return 0; };
+          var leerTxt = function (e) { var c = u32(e + 4), p = c > 4 ? t + u32(e + 8) : e + 8, s = ""; for (var i = 0; i < c - 1; i++) s += String.fromCharCode(v.getUint8(p + i)); return s; };
+          var ifd0 = u32(t + 4), exifPtr = buscar(ifd0, 0x8769), s = "";
+          if (exifPtr) { var ifdE = u32(exifPtr + 8), e1 = buscar(ifdE, 0x9003) || buscar(ifdE, 0x9004); if (e1) s = leerTxt(e1); }
+          if (!s) { var e0 = buscar(ifd0, 0x0132); if (e0) s = leerTxt(e0); }
+          var m = s.match(/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2})/);
+          return m ? m[1] + "-" + m[2] + "-" + m[3] + "T" + m[4] + ":" + m[5] + ":00" : "";
+        }
+        if ((marca & 0xFF00) !== 0xFF00) break;
+        o += 2 + largo;
+      }
+    } catch (e) {}
+    return "";
+  }
+  function procesarFoto(archivo) {
+    estadoFoto("Procesando la foto…");
+    leerInicio(archivo).then(function (buf) {
+      var fechaFoto = leerFechaExif(buf);
+      var img = new Image(), url = URL.createObjectURL(archivo);
+      img.onload = function () {
+        var max = 1600, w = img.naturalWidth, h = img.naturalHeight, k = Math.min(1, max / Math.max(w, h));
+        var c = document.createElement("canvas"); c.width = Math.round(w * k); c.height = Math.round(h * k);
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        var calidad = 0.82, dataUrl = c.toDataURL("image/jpeg", calidad);
+        while (dataUrl.length > 1500000 && calidad > 0.5) { calidad -= 0.1; dataUrl = c.toDataURL("image/jpeg", calidad); }
+        URL.revokeObjectURL(url);
+        S.foto = { dataUrl: dataUrl, fechaFoto: fechaFoto, nombre: archivo.name || "foto.jpg" };
+        cambio();
+      };
+      img.onerror = function () { estadoFoto("No se pudo leer la imagen. Pruebe con otra foto."); };
+      img.src = url;
+    });
+  }
+  function estadoFoto(t) { $("cajaFoto").classList.remove("oculto"); $("notaFoto").textContent = t; }
+
+  // ---------- revisión de redacción con IA (V7.8.63) ----------
+  // Opcional: propone el texto corregido (RAE, economía del lenguaje) sin cambiar datos.
+  // Si falla o tarda más de 12 s, se avisa y el trabajador envía su texto tal cual.
+  var propuesta = "", revisando = false;
+  function ocultarPropuesta(nota) { propuesta = ""; $("propuesta").classList.add("oculto"); $("notaRev").textContent = nota || ""; }
+  function revisarRedaccion() {
+    if (revisando) return;
+    var texto = S.obs.replace(/\s+/g, " ").trim();
+    if (!texto) { ocultarPropuesta("Escriba las observaciones antes de revisarlas."); return; }
+    if (texto.indexOf("…") !== -1) { ocultarPropuesta("Complete primero los «…» de las observaciones."); return; }
+    if (!navigator.onLine) { ocultarPropuesta("Sin conexión: la revisión necesita señal. Puede enviar su texto tal cual."); return; }
+    revisando = true; ocultarPropuesta("");
+    var btn = $("btnRevisar"); btn.disabled = true; btn.textContent = "Revisando…";
+    var tt = conTiempo(12000);
+    fetch(backend, { method: "POST", body: JSON.stringify({ accion: "miniapp_revisar", init_data: tg.initData, texto: texto }), signal: tt.signal })
+      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        if (!r.ok) { ocultarPropuesta(r.mensaje || "La revisión no está disponible. Envíe su texto tal cual."); return; }
+        if (r.igual) { ocultarPropuesta("✓ Su texto ya está correcto."); return; }
+        propuesta = r.texto; $("propTxt").textContent = r.texto; $("propuesta").classList.remove("oculto");
+        $("notaRev").textContent = "Revise que los datos sigan iguales antes de usarla.";
+      })
+      .catch(function (e) {
+        ocultarPropuesta(e && e.name === "AbortError" ? "La revisión tardó demasiado. Envíe su texto tal cual." : "La revisión no está disponible ahora. Envíe su texto tal cual.");
+      })
+      .finally(function () { tt.limpiar(); revisando = false; btn.disabled = false; btn.textContent = "✍️ Revisar redacción (opcional)"; });
+  }
+
+  // ---------- envío ----------
+  function avisoErrores(lista, suave) { var e = $("errores"); e.textContent = (suave ? "" : "No se pudo enviar:\n") + lista.join("\n"); e.classList.remove("oculto"); e.scrollIntoView({ behavior: "smooth", block: "center" }); }
+  function enviar() {
+    if (!navigator.onLine) { avisoErrores(["Sin conexión. El borrador quedó guardado: envíelo cuando tenga señal."], true); return; }
+    $("errores").classList.add("oculto");
+    if (!S.idCliente) { S.idCliente = nuevoId(); guardar(); }
+    var btn = $("enviarFijo"); btn.disabled = true; btn.textContent = "Enviando…";
+    try { tg.MainButton && tg.MainButton.showProgress && tg.MainButton.showProgress(); } catch (e) {}
+    var cuerpo = JSON.stringify({
+      accion: "miniapp_enviar", init_data: tg.initData, idCliente: S.idCliente,
+      datos: { actividad: S.actividad, instalacion: S.instalacion, organismos: S.organismos, fechaEjecucion: S.cuando === "otro" ? S.fecha : D.hoy, horaEjecucion: S.hora,
+        duracion: necesitaDuracion() ? duracionTexto() : "", ejecutor: llevaEjecutor() ? S.ejecutor : "NO ESPECIFICADO", observaciones: S.obs, extras: S.extras },
+      foto: { base64: S.foto.dataUrl.split(",")[1], mime: "image/jpeg", fechaFoto: S.foto.fechaFoto || "" }
+    });
+    var tt = conTiempo(90000);
+    fetch(backend, { method: "POST", body: cuerpo, signal: tt.signal }) // texto plano: sin preflight de CORS
+      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        tt.limpiar();
+        if (r.ok) {
+          try { localStorage.removeItem(LS_BORR); } catch (e) {}
+          try { tg.HapticFeedback && tg.HapticFeedback.notificationOccurred("success"); } catch (e) {}
+          $("exito").textContent = "✅ " + r.mensaje; $("exito").classList.remove("oculto"); btn.classList.add("oculto");
+          var cerrar = function () { try { tg.close(); } catch (e) {} };
+          if (tg.showAlert) tg.showAlert(r.mensaje + "\nLo verá publicado en este chat.", cerrar); else setTimeout(cerrar, 2500);
+        } else {
+          try { tg.HapticFeedback && tg.HapticFeedback.notificationOccurred("error"); } catch (e) {}
+          avisoErrores(r.errores && r.errores.length ? r.errores : [r.mensaje || "Error desconocido."]);
+          S.idCliente = ""; guardar(); pintar();
+        }
+      })
+      .catch(function (e) {
+        tt.limpiar();
+        avisoErrores([e.name === "AbortError" ? "El servidor tardó demasiado. Revise en el chat si el reporte se publicó antes de reenviarlo." : "No hubo conexión con el servidor. El borrador quedó guardado."], false);
+        pintar();
+      })
+      .finally(function () { try { tg.MainButton && tg.MainButton.hideProgress && tg.MainButton.hideProgress(); } catch (e) {} });
+  }
+
+  iniciar();
+})();
+</script>
+</body>
+</html>
